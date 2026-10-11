@@ -243,9 +243,18 @@ function show(v) {
   $$(".view").forEach(s => s.classList.toggle("on", s.id === "v-" + v));
   $$("#tabbar button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
   state.view = v; window.scrollTo(0, 0);
-  if (v === "mappa" && map) setTimeout(() => map.invalidateSize(), 50);
+  document.body.classList.toggle("map-open", v === "mappa");
+  if (v === "mappa") fitMap();
   refresh();
 }
+// misura intestazione e menu, così la mappa riempie esattamente lo spazio in mezzo
+function fitMap() {
+  const st = document.documentElement.style;
+  st.setProperty("--hh", $(".top").offsetHeight + "px");
+  st.setProperty("--tb", $("#tabbar").offsetHeight + "px");
+  if (map) setTimeout(() => map.invalidateSize(), 60);
+}
+window.addEventListener("resize", () => { if (state.view === "mappa") fitMap(); });
 $("#tabbar").addEventListener("click", e => { const b = e.target.closest("button"); if (b) show(b.dataset.v); });
 function refresh() {
   if (!state.me) return;
@@ -310,10 +319,17 @@ function initMap() {
   const canvas = L.canvas({ padding: 0.5, tolerance: 10 });
   AP.forEach(a => {
     const m = L.circleMarker([a.lat, a.lon], { renderer: canvas, radius: 3 }).addTo(map);
-    m.on("click", () => openSheet(a.iata));
+    m.on("click", e => { L.DomEvent.stop(e); showOnMap(a); openSheet(a.iata); });
     markers[a.iata] = m;
   });
   paintMarkers();
+}
+// porta l'aeroporto nella parte alta della mappa, così la scheda in basso non lo copre
+function showOnMap(a, zoom) {
+  if (!map) return;
+  const z = zoom || map.getZoom(), sz = map.getSize();
+  const pt = map.project([a.lat, a.lon], z).add([0, sz.y * 0.22]);
+  map.setView(map.unproject(pt, z), z, { animate: true });
 }
 function paintMarkers() {
   if (!map) return;
@@ -347,7 +363,7 @@ $("#mapQ").addEventListener("input", e => {
 $("#mapRes").addEventListener("click", e => {
   const d = e.target.closest("[data-i]"); if (!d) return;
   const a = BY[d.dataset.i]; $("#mapRes").hidden = true; $("#mapQ").value = "";
-  if (map) map.flyTo([a.lat, a.lon], 8, { duration: .8 });
+  showOnMap(a, Math.max(map ? map.getZoom() : 0, 7));
   openSheet(a.iata);
 });
 

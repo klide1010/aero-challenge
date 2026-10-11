@@ -122,42 +122,70 @@ CFG.users.forEach(u => state.data[u.id] = Object.assign(emptyUser(), store.get("
 const meta = id => CFG.users.find(u => u.id === id);
 const other = () => CFG.users.find(u => u.id !== state.me);
 const mine = () => state.data[state.me];
-const DB = CFG.dbUrl ? CFG.dbUrl.replace(/\/$/, "") : "";
-let syncState = DB ? "…" : "locale";
-
+// Sincronizzazione: un file JSON per giocatore nel repo privato dei dati (GitHub API).
+// La chiave (token GitHub) non sta nel codice: la si incolla una volta per dispositivo in "Io".
+const REPO = CFG.dataRepo || "", BRANCH = CFG.dataBranch || "main";
+const token = () => store.get("aero:ghtoken", "");
+const online = () => !!(REPO && token());
+const shas = {};
+let syncState = "…";
+const b64enc = s => btoa(unescape(encodeURIComponent(s)));
+const b64dec = s => decodeURIComponent(escape(atob(s.replace(/\n/g, ""))));
+const gh = (path, opt = {}) => fetch(`https://api.github.com/repos/${REPO}/contents/${path}`, Object.assign({ cache: "no-store" }, opt, {
+  headers: { Authorization: "Bearer " + token(), Accept: "application/vnd.github+json" }
+}));
+async function readRemote(id) {
+  const r = await fetch(`https://api.github.com/repos/${REPO}/contents/data/${id}.json?ref=${BRANCH}&t=${Date.now()}`, {
+    cache: "no-store", headers: { Authorization: "Bearer " + token(), Accept: "application/vnd.github+json" } });
+  if (r.status === 404) { shas[id] = null; return null; }
+  if (r.status === 401 || r.status === 403) throw new Error("auth");
+  if (!r.ok) throw new Error("http " + r.status);
+  const j = await r.json(); shas[id] = j.sha;
+  return JSON.parse(b64dec(j.content));
+}
 async function pull() {
-  if (!DB) return;
+  if (!online()) return paintSync();
   try {
-    const r = await fetch(`${DB}/aero.json`, { cache: "no-store" });
-    const j = (await r.json()) || {};
-    CFG.users.forEach(u => {
-      const remote = j[u.id];
-      if (!remote) return;
+    for (const u of CFG.users) {
+      const remote = await readRemote(u.id);
+      if (!remote) continue;
       const loc = state.data[u.id];
-      // il proprio profilo vince se è più recente; l'altro viene sempre preso dal server
+      // il proprio profilo vince se è più recente; quello dell'altro viene sempre dal server
       if (u.id !== state.me || (remote.updated || 0) > (loc.updated || 0))
         state.data[u.id] = Object.assign(emptyUser(), remote, { visits: remote.visits || {} });
       store.set("aero:data:" + u.id, state.data[u.id]);
-    });
+    }
+    if ((mine().updated || 0) > 0 && dirty()) pushNow();
     syncState = "online ✓";
-  } catch (e) { syncState = "offline"; }
+  } catch (e) { syncState = e.message === "auth" ? "chiave non valida" : "offline"; }
   paintSync(); refresh();
 }
+const dirty = () => store.get("aero:dirty", false);
 let pushT;
 function save() {
   const d = mine(); d.updated = Date.now();
   store.set("aero:data:" + state.me, d);
-  if (!DB) return;
-  clearTimeout(pushT);
-  pushT = setTimeout(async () => {
-    try {
-      await fetch(`${DB}/aero/${state.me}.json`, { method: "PUT", body: JSON.stringify(d) });
-      syncState = "online ✓";
-    } catch (e) { syncState = "offline"; }
-    paintSync();
-  }, 500);
+  store.set("aero:dirty", true);
+  if (!online()) return;
+  clearTimeout(pushT); syncState = "salvo…"; paintSync();
+  pushT = setTimeout(pushNow, 1500);
 }
-function paintSync() { $("#syncChip").textContent = DB ? "☁️ " + syncState : "📱 solo qui"; }
+async function pushNow(retry = true) {
+  const d = mine(), body = { message: `${meta(state.me).name}: aggiorna aeroporti`, branch: BRANCH,
+    content: b64enc(JSON.stringify(d, null, 1)) };
+  try {
+    if (shas[state.me] === undefined) await readRemote(state.me).catch(() => {});
+    if (shas[state.me]) body.sha = shas[state.me];
+    const r = await gh(`data/${state.me}.json`, { method: "PUT", body: JSON.stringify(body) });
+    if ((r.status === 409 || r.status === 422) && retry) { await readRemote(state.me); return pushNow(false); }
+    if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "auth" : "http");
+    shas[state.me] = (await r.json()).content.sha;
+    store.set("aero:dirty", false);
+    syncState = "online ✓";
+  } catch (e) { syncState = e.message === "auth" ? "chiave non valida" : "offline"; }
+  paintSync();
+}
+function paintSync() { $("#syncChip").textContent = online() ? "☁️ " + syncState : "📱 solo qui"; }
 
 /* ---------- login ---------- */
 $("#loginForm").addEventListener("submit", e => {
@@ -426,9 +454,12 @@ function renderIo() {
         <input id="homeIn" maxlength="3" value="${esc(d.home)}" placeholder="es. MXP, FCO, LIN" style="text-transform:uppercase"></label>
       <div class="muted" id="homeName">${h ? `${flag(h.cc)} ${esc(h.name)}` : "Serve per stimare km e ore."}</div></div>
     <div class="card"><h3>🔄 Passaggio dati</h3>
-      ${DB ? `<p class="muted">Sincronizzazione online attiva ☁️ — l'altro vede i tuoi aeroporti in automatico.</p>
-        <button class="btn small" id="syncNow">Aggiorna ora</button>` :
-        `<div class="warn">Sincronizzazione online non configurata: i dati restano su questo dispositivo. Per vedere i dati dell'altro scambiatevi il codice qui sotto (oppure attivate Firebase, vedi README).</div>`}
+      ${online() ? `<p class="muted">Sincronizzazione attiva ☁️ (${syncState}) — l'altro vede i tuoi aeroporti in automatico.</p>
+        <button class="btn small" id="syncNow">Aggiorna ora</button> <button class="btn small ghost" id="tokDel">Scollega</button>` :
+        `<div class="warn">Sincronizzazione non collegata su questo dispositivo: incolla la chiave (va fatto una volta sola per telefono).</div>
+        <label class="field"><span>🔑 Chiave di sincronizzazione</span><input id="tokIn" type="password" placeholder="github_pat_…" autocomplete="off"></label>
+        <button class="btn small" id="tokSave">Collega</button>`}
+      <p class="muted" style="margin-top:14px">Piano B senza chiave: scambiatevi il codice qui sotto.</p>
       <label class="field"><span>Il mio codice</span><textarea id="codeOut" readonly></textarea></label>
       <button class="btn small" id="copyCode">Copia codice</button>
       <label class="field"><span>Incolla un codice (tuo o dell'altro)</span><textarea id="codeIn" placeholder="AERO1:…"></textarea></label>
@@ -447,6 +478,14 @@ $("#v-io").addEventListener("click", async e => {
   const id = e.target.id;
   if (id === "logout") logout();
   if (id === "syncNow") { await pull(); toast("Aggiornato ☁️"); renderIo(); }
+  if (id === "tokDel") { store.set("aero:ghtoken", ""); paintSync(); renderIo(); }
+  if (id === "tokSave") {
+    const t = $("#tokIn").value.trim(); if (!t) return;
+    store.set("aero:ghtoken", t); syncState = "…"; await pull();
+    if (syncState === "online ✓") { if (dirty() || !shas[state.me]) await pushNow(); toast("Collegato! Ora siete sincronizzati ☁️"); }
+    else { store.set("aero:ghtoken", ""); toast("Chiave non valida o senza permessi 🤔"); }
+    paintSync(); renderIo();
+  }
   if (id === "copyCode") { try { await navigator.clipboard.writeText($("#codeOut").value); toast("Codice copiato 📋"); } catch (er) { $("#codeOut").select(); toast("Selezionato: copia a mano"); } }
   if (id === "importCode") {
     try {

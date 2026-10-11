@@ -14,12 +14,11 @@ Si entra con la sola parola d'ordine; utenti e colori in `config.js` (nome "Andr
 Nel file ci sono solo gli hash SHA-256 (`sha256("aerosfida|" + password)`), non le password.
 ⚠️ Essendo un sito statico il controllo è lato browser: va bene per gioco tra fratelli, non per dati sensibili.
 
-## Sincronizzazione tra i due telefoni (consigliata)
-Senza backend ognuno vede solo i propri dati (si può scambiare il codice da **Io → Passaggio dati**).
-Per la vista aggregata automatica:
-1. Crea un progetto gratuito su Firebase → *Realtime Database* → modalità test.
-2. Regole: `{"rules":{"aero":{".read":true,".write":true}}}`
-3. Copia l'URL del database in `config.js` → `dbUrl`.
+## Sincronizzazione tra i due telefoni
+I dati di ciascuno stanno nel repo **privato** `klide1010/aero-challenge-data` (`data/andrea.json`, `data/luca.json`):
+il sito li legge e li scrive con l'API di GitHub. Ognuno scrive solo il proprio file, la sfida li unisce.
+Serve una chiave (fine-grained token GitHub con accesso *Contents: Read and write* solo a quel repo),
+da incollare una volta per dispositivo in **Io → Chiave di sincronizzazione**. La chiave resta solo nel browser.
 
 ## Punteggio
 10 pt per aeroporto · +15 nuovo paese · +40 nuovo continente · bonus fedeltà +3 / +6 / +10.

@@ -1,15 +1,32 @@
-// Configurazione di AeroSfida.
+// Configurazione di AeroSfida (generata dal sito).
+// Nessuna password qui: per ogni giocatore c'è solo la chiave di sincronizzazione cifrata con la sua password.
 window.AERO_CONFIG = {
-  // Le password NON sono scritte in chiaro: qui c'è solo l'hash SHA-256 di "aerosfida|<password>".
-  users: [
-    { id: "luca",  name: "Luca",  emoji: "🧳", color: "#0e9aa7", hash: "873df55ff2e6b7c5d38479b98e57a577a2862c9995a8b8952a52cc8d82500fb9" },
-    { id: "andrea", name: "Andrea", emoji: "🎒", color: "#f26b21", hash: "812e91c11c70e743dda6ec7070308275e49f18da20ab2960b0c3f00d7bef113b" }
+  "users": [
+    {
+      "id": "luca",
+      "name": "Luca",
+      "emoji": "🧳",
+      "color": "#0e9aa7",
+      "lock": {
+        "s": "xlCkdYrwX1hwqL5dOcgvTQ==",
+        "iv": "sBPGoBMsjzYkkipJ",
+        "c": "+6aY9KlZgYCw0GJdTun52rWIFn34BFvJMo3+0A6OtIKO1rMR4Lceq0fAof2b4q3bI1twghv02d+F7dVM/iTbncCIopAYTaJdB8oaWrNNCmauAmPOvX8SSk3xV9NT1uu/A4ihe1d1pXZQ9DKarw=="
+      }
+    },
+    {
+      "id": "andrea",
+      "name": "Andrea",
+      "emoji": "🎒",
+      "color": "#f26b21",
+      "lock": {
+        "s": "1F2Lamc4oSu4EP8lexALtQ==",
+        "iv": "NNuKm8PN2Btc82rr",
+        "c": "T1NZsAngz1igEIfyifQ/56zpoomz1XL9Upt5GS9VDqwVoM74OvWvU7eo7m+PVZWeiBMZ+74D/V7DFG8wcUfz5TJ6g/7uRtmjfvOYRpTp/pP4h19PfLezyk+opm5izcp0v6cfYZU+Jzpvfq8TUA=="
+      }
+    }
   ],
-  // Sincronizzazione: i dati stanno nel repo PRIVATO qui sotto (data/<id>.json).
-  // La chiave di accesso non è nel codice: ognuno la incolla una volta in "Io".
-  dataRepo: "klide1010/aero-challenge-data",
-  dataBranch: "main",
-  // Repo e branch del sito: qui il sito salva la configurazione cifrata (una volta sola).
-  siteRepo: "klide1010/aero-challenge",
-  siteBranch: "claude/airport-counter-app-4j77pr"
+  "dataRepo": "klide1010/aero-challenge-data",
+  "dataBranch": "main",
+  "siteRepo": "klide1010/aero-challenge",
+  "siteBranch": "claude/airport-counter-app-4j77pr"
 };

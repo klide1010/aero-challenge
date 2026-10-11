@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#12263a">
+<title>AeroSfida – il conta aeroporti</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E%E2%9C%88%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<section id="login" class="login">
+  <div class="login-card">
+    <div class="login-plane">✈️</div>
+    <h1>AeroSfida</h1>
+    <p class="tag">Chi collezionerà più gate? Check-in, prego.</p>
+    <form id="loginForm" autocomplete="off">
+      <input id="pwd" type="password" placeholder="Parola d'ordine del viaggiatore" autocomplete="current-password" required>
+      <button class="btn big" type="submit">Imbarco 🛫</button>
+    </form>
+    <p id="loginErr" class="err" hidden>Passaporto non valido. Riprova, il volo non aspetta!</p>
+  </div>
+</section>
+
+<div id="app" hidden>
+  <header class="top">
+    <div class="brand">✈️ <b>AeroSfida</b></div>
+    <div class="who"><span id="whoChip" class="chip"></span><span id="syncChip" class="chip sync"></span></div>
+  </header>
+
+  <main>
+    <section id="v-sfida" class="view"></section>
+    <section id="v-mappa" class="view map-view">
+      <div class="map-search">
+        <input id="mapQ" type="search" placeholder="Cerca aeroporto, città, codice…" autocomplete="off">
+        <div id="mapRes" class="map-res" hidden></div>
+      </div>
+      <div id="map"></div>
+      <div class="legend" id="legend"></div>
+    </section>
+    <section id="v-lista" class="view">
+      <h2>🔎 Tutti gli aeroporti</h2>
+      <input id="q" type="search" placeholder="Roma, JFK, Islanda, Tenerife…" autocomplete="off">
+      <div class="filters" id="filters">
+        <button data-f="all" class="on">Tutti</button>
+        <button data-f="mine">Visitati da me</button>
+        <button data-f="todo">Da conquistare</button>
+        <button data-f="bro">Solo l'altro</button>
+      </div>
+      <div id="list"></div>
+    </section>
+    <section id="v-stats" class="view"></section>
+    <section id="v-io" class="view"></section>
+  </main>
+
+  <nav class="tabbar" id="tabbar">
+    <button data-v="sfida" class="on"><i>🏆</i><span>Sfida</span></button>
+    <button data-v="mappa"><i>🗺️</i><span>Mappa</span></button>
+    <button data-v="lista"><i>🔎</i><span>Aeroporti</span></button>
+    <button data-v="stats"><i>📊</i><span>Stats</span></button>
+    <button data-v="io"><i>👤</i><span>Io</span></button>
+  </nav>
+</div>
+
+<div id="sheetBg" class="sheet-bg" hidden></div>
+<aside id="sheet" class="sheet" hidden></aside>
+<div id="toast" class="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="config.js"></script>
+<script src="data/airports.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -10,7 +10,7 @@ Scaricati **una volta** da [OurAirports](https://ourairports.com/data/) (dominio
 Per rigenerarli: `python3 tools/build_airports.py airports.csv`.
 
 ## Account
-Si entra con la sola parola d'ordine; utenti e colori in `config.js` (nome "Klide" modificabile).
+Si entra con la sola parola d'ordine; utenti e colori in `config.js` (nome "Andrea" modificabile).
 Nel file ci sono solo gli hash SHA-256 (`sha256("aerosfida|" + password)`), non le password.
 ⚠️ Essendo un sito statico il controllo è lato browser: va bene per gioco tra fratelli, non per dati sensibili.
 

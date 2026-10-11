@@ -8,5 +8,8 @@ window.AERO_CONFIG = {
   // Sincronizzazione: i dati stanno nel repo PRIVATO qui sotto (data/<id>.json).
   // La chiave di accesso non è nel codice: ognuno la incolla una volta in "Io".
   dataRepo: "klide1010/aero-challenge-data",
-  dataBranch: "main"
+  dataBranch: "main",
+  // Repo e branch del sito: qui il sito salva la configurazione cifrata (una volta sola).
+  siteRepo: "klide1010/aero-challenge",
+  siteBranch: "claude/airport-counter-app-4j77pr"
 };

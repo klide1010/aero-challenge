@@ -188,11 +188,43 @@ async function pushNow(retry = true) {
 function paintSync() { $("#syncChip").textContent = online() ? "☁️ " + syncState : "📱 solo qui"; }
 
 /* ---------- login ---------- */
-$("#loginForm").addEventListener("submit", e => {
+/* Accesso: la password è la chiave. Nel config pubblico c'è solo la chiave di sincronizzazione
+   cifrata (AES-GCM, chiave derivata dalla password con PBKDF2): niente hash, niente password in chiaro. */
+const PBKDF2_ITER = 300000;
+const u8 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+async function pwdKey(pwd, salt) {
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pwd), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: PBKDF2_ITER, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+}
+async function lock(secret, pwd) {
+  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+  const c = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await pwdKey(pwd, salt), new TextEncoder().encode(secret));
+  return { s: b64(salt), iv: b64(iv), c: b64(c) };
+}
+async function unlock(l, pwd) {
+  try {
+    const p = await crypto.subtle.decrypt({ name: "AES-GCM", iv: u8(l.iv) }, await pwdKey(pwd, u8(l.s)), u8(l.c));
+    return new TextDecoder().decode(p);
+  } catch (e) { return null; }
+}
+const locked = () => CFG.users.every(u => u.lock);
+$("#loginForm").addEventListener("submit", async e => {
   e.preventDefault();
-  const h = sha256("aerosfida|" + $("#pwd").value);
-  const u = CFG.users.find(x => x.hash === h);
+  const pwd = $("#pwd").value, btn = $("#loginForm button");
+  $("#loginErr").hidden = true;
+  let u = null, tok = null;
+  if (locked()) {
+    if (!window.crypto || !crypto.subtle) { $("#loginErr").hidden = false; $("#loginErr").textContent = "Apri il sito in https per entrare."; return; }
+    btn.disabled = true; btn.textContent = "Controllo passaporto… 🛂";
+    for (const x of CFG.users) { tok = await unlock(x.lock, pwd); if (tok) { u = x; break; } }
+    btn.disabled = false; btn.textContent = "Imbarco 🛫";
+  } else {
+    const h = sha256("aerosfida|" + pwd);
+    u = CFG.users.find(x => x.hash === h);
+  }
   if (!u) { $("#loginErr").hidden = false; return; }
+  if (tok) store.set("aero:ghtoken", tok);
   store.set("aero:me", u.id); enter(u.id);
 });
 function enter(id) {
@@ -203,7 +235,7 @@ function enter(id) {
   $("#whoChip").textContent = `${meta(id).emoji} ${meta(id).name}`;
   paintSync(); initMap(); show("sfida"); pull();
 }
-function logout() { store.set("aero:me", null); location.reload(); }
+function logout() { store.set("aero:me", null); if (locked()) store.set("aero:ghtoken", ""); location.reload(); }
 
 /* ---------- navigazione ---------- */
 let map, markers = {}, mapReady = false;
@@ -456,9 +488,12 @@ function renderIo() {
     <div class="card"><h3>🔄 Passaggio dati</h3>
       ${online() ? `<p class="muted">Sincronizzazione attiva ☁️ (${syncState}) — l'altro vede i tuoi aeroporti in automatico.</p>
         <button class="btn small" id="syncNow">Aggiorna ora</button> <button class="btn small ghost" id="tokDel">Scollega</button>` :
-        `<div class="warn">Sincronizzazione non collegata su questo dispositivo: incolla la chiave (va fatto una volta sola per telefono).</div>
-        <label class="field"><span>🔑 Chiave di sincronizzazione</span><input id="tokIn" type="password" placeholder="github_pat_…" autocomplete="off"></label>
-        <button class="btn small" id="tokSave">Collega</button>`}
+        locked() ? `<div class="warn">Esci e rientra con la tua password per collegare questo telefono.</div>` :
+        `<div class="warn">Configurazione da fare <b>una volta sola</b>: incolla la chiave GitHub e le due password.
+          La chiave viene cifrata con le password e salvata nel sito; da lì in poi basta la password per entrare e sincronizzare, su qualsiasi telefono.</div>
+        <label class="field"><span>🔑 Chiave GitHub</span><input id="tokIn" type="password" placeholder="github_pat_…" autocomplete="off"></label>
+        ${CFG.users.map(u => `<label class="field"><span>Password di ${esc(u.name)}</span><input data-pw="${u.id}" type="password" autocomplete="off"></label>`).join("")}
+        <button class="btn small" id="setupGo">Configura per entrambi</button>`}
       <p class="muted" style="margin-top:14px">Piano B senza chiave: scambiatevi il codice qui sotto.</p>
       <label class="field"><span>Il mio codice</span><textarea id="codeOut" readonly></textarea></label>
       <button class="btn small" id="copyCode">Copia codice</button>
@@ -479,13 +514,7 @@ $("#v-io").addEventListener("click", async e => {
   if (id === "logout") logout();
   if (id === "syncNow") { await pull(); toast("Aggiornato ☁️"); renderIo(); }
   if (id === "tokDel") { store.set("aero:ghtoken", ""); paintSync(); renderIo(); }
-  if (id === "tokSave") {
-    const t = $("#tokIn").value.trim(); if (!t) return;
-    store.set("aero:ghtoken", t); syncState = "…"; await pull();
-    if (syncState === "online ✓") { if (dirty() || !shas[state.me]) await pushNow(); toast("Collegato! Ora siete sincronizzati ☁️"); }
-    else { store.set("aero:ghtoken", ""); toast("Chiave non valida o senza permessi 🤔"); }
-    paintSync(); renderIo();
-  }
+  if (id === "setupGo") setup().catch(er => toast("Errore: " + er.message));
   if (id === "copyCode") { try { await navigator.clipboard.writeText($("#codeOut").value); toast("Codice copiato 📋"); } catch (er) { $("#codeOut").select(); toast("Selezionato: copia a mano"); } }
   if (id === "importCode") {
     try {
@@ -502,8 +531,36 @@ $("#v-io").addEventListener("click", async e => {
   }
 });
 
+async function setup() {
+  const t = $("#tokIn").value.trim(), pw = {};
+  $$("[data-pw]").forEach(i => pw[i.dataset.pw] = i.value);
+  if (!t) return toast("Manca la chiave 🔑");
+  for (const u of CFG.users) if (sha256("aerosfida|" + pw[u.id]) !== u.hash) return toast(`Password di ${u.name} sbagliata`);
+  if (!window.crypto || !crypto.subtle) return toast("Serve https");
+  store.set("aero:ghtoken", t); syncState = "…"; await pull();
+  if (syncState !== "online ✓") { store.set("aero:ghtoken", ""); paintSync(); return toast("La chiave non apre il repo dei dati 🤔"); }
+  await pushNow();
+  toast("Cifro la chiave… 🔐");
+  const users = [];
+  for (const u of CFG.users) users.push({ id: u.id, name: u.name, emoji: u.emoji, color: u.color, lock: await lock(t, pw[u.id]) });
+  const cfg = Object.assign({}, CFG, { users });
+  const text = `// Configurazione di AeroSfida (generata dal sito).
+// Nessuna password qui: per ogni giocatore c'è solo la chiave di sincronizzazione cifrata con la sua password.
+window.AERO_CONFIG = ${JSON.stringify(cfg, null, 2)};
+`;
+  const url = `https://api.github.com/repos/${CFG.siteRepo}/contents/config.js`;
+  const hd = { Authorization: "Bearer " + t, Accept: "application/vnd.github+json" };
+  const cur = await fetch(`${url}?ref=${encodeURIComponent(CFG.siteBranch)}&t=${Date.now()}`, { headers: hd, cache: "no-store" });
+  if (!cur.ok) throw new Error("la chiave non può scrivere nel repo del sito");
+  const r = await fetch(url, { method: "PUT", headers: hd, body: JSON.stringify({
+    message: "Configura accesso cifrato", branch: CFG.siteBranch, sha: (await cur.json()).sha, content: b64enc(text) }) });
+  if (!r.ok) throw new Error("salvataggio config non riuscito (" + r.status + ")");
+  CFG.users.forEach((u, i) => { u.lock = users[i].lock; delete u.hash; });
+  toast("Fatto! Tra un minuto il sito usa solo le password 🎉"); renderIo();
+}
+
 /* ---------- avvio ---------- */
 document.addEventListener("visibilitychange", () => { if (!document.hidden && state.me) pull(); });
 const saved = store.get("aero:me", null);
-if (saved && meta(saved)) enter(saved);
+if (saved && meta(saved) && (!locked() || token())) enter(saved);
 })();

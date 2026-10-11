@@ -9,16 +9,14 @@ Scaricati **una volta** da [OurAirports](https://ourairports.com/data/) (dominio
 `data/airports.js` (4008 aeroporti con codice IATA e voli di linea, ~300 KB). Nessuna API a runtime.
 Per rigenerarli: `python3 tools/build_airports.py airports.csv`.
 
-## Account
-Si entra con la sola parola d'ordine; utenti e colori in `config.js` (nome "Andrea" modificabile).
-Nel file ci sono solo gli hash SHA-256 (`sha256("aerosfida|" + password)`), non le password.
-⚠️ Essendo un sito statico il controllo è lato browser: va bene per gioco tra fratelli, non per dati sensibili.
-
-## Sincronizzazione tra i due telefoni
-I dati di ciascuno stanno nel repo **privato** `klide1010/aero-challenge-data` (`data/andrea.json`, `data/luca.json`):
-il sito li legge e li scrive con l'API di GitHub. Ognuno scrive solo il proprio file, la sfida li unisce.
-Serve una chiave (fine-grained token GitHub con accesso *Contents: Read and write* solo a quel repo),
-da incollare una volta per dispositivo in **Io → Chiave di sincronizzazione**. La chiave resta solo nel browser.
+## Accesso e sincronizzazione
+- Il sito (questo repo, pubblico) gira su GitHub Pages.
+- I dati di gioco stanno nel repo privato `klide1010/aero-challenge-data` (`data/andrea.json`, `data/luca.json`),
+  letti e scritti dal sito tramite l'API di GitHub con una chiave (fine-grained token).
+- **Configurazione una tantum** (Io → "Configura per entrambi"): si incollano la chiave e le due password.
+  Il sito cifra la chiave con ciascuna password (PBKDF2 300k iterazioni + AES-GCM) e riscrive `config.js`
+  togliendo gli hash. Da lì in poi la password serve sia per entrare sia per sincronizzare, su qualsiasi telefono.
+- Nel codice pubblico non ci sono né password né loro hash: solo la chiave cifrata.
 
 ## Punteggio
 10 pt per aeroporto · +15 nuovo paese · +40 nuovo continente · bonus fedeltà +3 / +6 / +10.

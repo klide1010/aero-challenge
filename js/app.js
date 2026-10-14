@@ -395,10 +395,11 @@ function renderList() {
 /* ---------- SFIDA: tabellone tennis ---------- */
 const fmt = n => Math.round(n).toLocaleString("it");
 const fmtH = h => h < 1 ? "0 h" : `${fmt(h)} h`;
-const cell = (l, v) => l === "Km" ? (v >= 10000 ? Math.round(v / 1000) + "k" : fmt(v)) : l === "Ore" ? Math.round(v) : v;
+const short = v => v >= 1e6 ? (v / 1e6).toFixed(1).replace(".", ",") + "M" : v >= 1e4 ? Math.round(v / 1000) + "k" : fmt(v);
+const cell = (l, v) => l === "Ore" ? (v >= 1000 ? (v / 1000).toFixed(1).replace(".", ",") + "k" : Math.round(v)) : v;
 function sets(a, b) {
   const rows = [
-    ["Aerop.", "n"], ["Paesi", x => x.countries.size], ["Contin.", x => x.conts.size], ["Km", "km"], ["Ore", "hours"], ["Fed.", "bonus"]
+    ["Aerop.", "n"], ["Paesi", x => x.countries.size], ["Contin.", x => x.conts.size], ["Ore", "hours"], ["Fedeltà", "bonus"]
   ].map(([l, f]) => { const g = typeof f === "string" ? (x => x[f]) : f; return { l, a: g(a), b: g(b) }; });
   return rows;
 }
@@ -428,6 +429,7 @@ function renderSfida() {
       <div class="board-head"><span>🎾 Aeroporto Open</span><span>Tabellone</span></div>
       <table><thead><tr><th></th>${S.map(r => `<th>${r.l}</th>`).join("")}<th>Set</th></tr></thead>
       <tbody>${mkRow(me, A, "a")}${mkRow(ot, B, "b")}</tbody></table>
+      <div class="board-km">✈️ Km stimati (fuori match): ${me.emoji} ${short(A.km)} · ${ot.emoji} ${short(B.km)}</div>
       <div class="verdict">${verdict}</div>
     </div>
     <div class="score-big">
@@ -442,7 +444,7 @@ function renderSfida() {
     <div class="card"><h3>📜 Come si fa punteggio</h3>
       <div class="muted">Ogni aeroporto = ${PT_AIRPORT} pt · nuovo paese = +${PT_COUNTRY} · nuovo continente = +${PT_CONT}<br>
       Bonus fedeltà: 2–5 volte +3 · 6–10 volte +6 · oltre 10 volte +10.<br>
-      Il tabellone assegna un <b>set</b> per ogni categoria vinta: chi ne vince di più, vince il match.</div></div>`;
+      Il tabellone assegna un <b>set</b> per ogni categoria vinta (Fedeltà = punti bonus fedeltà): chi ne vince di più, vince il match.</div></div>`;
 }
 function nextGoal(n) {
   const nx = TITLES.find(t => t[0] > n);
